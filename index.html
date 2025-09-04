@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echoes of the Aetherium</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-bg: #1a1a1a;
+            --secondary-bg: #2a2a2a;
+            --text-color: #e0e0e0;
+            --accent-color: #8a4fff;
+            --border-color: #4a4a4a;
+            --game-font: 'Press Start 2P', cursive;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            font-family: var(--game-font);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            image-rendering: pixelated;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1024px;
+            max-height: 768px;
+            box-shadow: 0 0 30px rgba(138, 79, 255, 0.5);
+            border: 4px solid var(--border-color);
+            background-color: #000;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-panel {
+            position: absolute;
+            background-color: rgba(42, 42, 42, 0.9);
+            border: 4px solid var(--border-color);
+            box-shadow: inset 0 0 0 4px var(--primary-bg);
+            padding: 15px;
+            color: var(--text-color);
+            z-index: 10;
+            display: none; /* Hidden by default */
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        /* Dialogue Box */
+        #dialogue-box {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 800px;
+        }
+        #dialogue-speaker {
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+        #dialogue-text {
+            margin-bottom: 10px;
+        }
+        #dialogue-prompt {
+            text-align: right;
+            font-size: 10px;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Inventory & Crafting Window */
+        #inventory-crafting-window {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 700px;
+            display: none;
+            flex-direction: column;
+        }
+
+        .window-header {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: var(--accent-color);
+            text-shadow: 2px 2px #000;
+        }
+
+        #ic-content {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .ic-section {
+            width: 50%;
+        }
+
+        .section-title {
+            margin-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        #inventory-grid, #crafting-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+            gap: 8px;
+        }
+        
+        .grid-item {
+            width: 48px;
+            height: 48px;
+            background-color: var(--primary-bg);
+            border: 2px solid var(--border-color);
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .grid-item .item-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .grid-item .item-count {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            background: rgba(0,0,0,0.7);
+            padding: 1px 3px;
+            font-size: 10px;
+            border-radius: 2px;
+        }
+
+        .grid-item:hover {
+            background-color: var(--secondary-bg);
+            border-color: var(--accent-color);
+        }
+
+        #crafting-grid .grid-item.can-craft {
+            border-color: #5eff5e;
+        }
+
+        #tooltip {
+            bottom: 100%; /* Position above the item */
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px;
+            background-color: #111;
+            border: 2px solid var(--accent-color);
+            white-space: pre-wrap;
+            font-size: 11px;
+            display: none; /* Hidden by default */
+            position: absolute;
+            pointer-events: none;
+        }
+        #tooltip-name {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        #tooltip-desc { color: #ccc; }
+        #tooltip-cost { color: #ffb3b3; margin-top: 5px; }
+        
+        .grid-item:hover #tooltip {
+            display: block;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: none;
+        }
+
+        #health-bar-container {
+            background-color: var(--primary-bg);
+            border: 2px solid var(--border-color);
+            padding: 2px;
+            width: 200px;
+            height: 20px;
+        }
+        #health-bar {
+            background-color: #ff4d4d;
+            width: 100%;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        #objective-display {
+            background-color: rgba(42, 42, 42, 0.8);
+            border: 2px solid var(--border-color);
+            padding: 10px;
+            max-width: 300px;
+        }
+        #objective-title {
+            font-size: 12px;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+        #objective-text {
+            font-size: 10px;
+        }
+        
+        /* Message Popup */
+        #message-popup {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--accent-color);
+            color: var(--primary-bg);
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.5s, top 0.5s;
+        }
+
+        /* Start/End Screen */
+        #start-screen, #end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #start-screen h1, #end-screen h1 {
+            font-size: 28px;
+            color: var(--accent-color);
+            text-shadow: 3px 3px #000;
+            margin-bottom: 20px;
+        }
+        #start-screen p, #end-screen p {
+            max-width: 600px;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+        .start-button {
+            padding: 15px 30px;
+            font-family: var(--game-font);
+            font-size: 16px;
+            background: var(--accent-color);
+            color: var(--text-color);
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            box-shadow: 4px 4px 0 var(--border-color);
+            transition: all 0.1s ease;
+        }
+        .start-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--border-color);
+        }
+
+        .start-button:disabled {
+            background: #555;
+            color: #999;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        .controls-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .controls-list li {
+            margin-bottom: 5px;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Panels -->
+        <div id="hud">
+             <div id="health-bar-container">
+                <div id="health-bar"></div>
+            </div>
+            <div id="objective-display" class="ui-panel" style="display: block;">
+                <div id="objective-title">Current Objective</div>
+                <div id="objective-text"></div>
+            </div>
+        </div>
+        
+        <div id="dialogue-box" class="ui-panel">
+            <div id="dialogue-speaker"></div>
+            <div id="dialogue-text"></div>
+            <div id="dialogue-prompt">[E] to continue...</div>
+        </div>
+
+        <div id="inventory-crafting-window" class="ui-panel">
+            <div class="window-header">Inventory & Crafting</div>
+            <div id="ic-content">
+                <div class="ic-section">
+                    <div class="section-title">Inventory</div>
+                    <div id="inventory-grid"></div>
+                </div>
+                <div class="ic-section">
+                    <div class="section-title">Crafting</div>
+                    <div id="crafting-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="message-popup" class="ui-panel"></div>
+        
+        <div id="start-screen">
+            <h1>Echoes of the Aetherium</h1>
+            <p>The airship *The Zephyr* has shattered, its Aetherium Core exploding over an uncharted forest. You awaken in the wreckage, the sole survivor. The forest hums with a strange, corrupting energy. You must survive, explore, and find a way to signal for help.</p>
+            <button class="start-button" id="start-game-button">Begin Survival</button>
+            <ul class="controls-list">
+                <li>[WASD] / [Arrow Keys] - Move</li>
+                <li>[E] - Interact / Gather</li>
+                <li>[Space] - Attack</li>
+                <li>[C] / [I] - Open/Close Inventory & Crafting</li>
+            </ul>
+        </div>
+        
+        <div id="end-screen" style="display: none;">
+            <h1>Signal Sent</h1>
+            <p>Atop the Sky-Spire, your beacon cuts through the corrupted sky, a defiant spark of hope. The forest quiets, its echo-touched energy receding. You've survived. Help is on the way. Thank you for playing!</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game container dimensions
+        const gameContainer = document.getElementById('game-container');
+        let canvasWidth = gameContainer.clientWidth;
+        let canvasHeight = gameContainer.clientHeight;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        
+        // --- Game Configuration ---
+        const TILE_SIZE = 32;
+        const PLAYER_SPEED = 3;
+        const RENDER_DISTANCE = 1.5; // How many screens away to render objects
+
+        // --- Game State ---
+        let gameState = {
+            running: false,
+            player: {
+                x: TILE_SIZE * 5,
+                y: TILE_SIZE * 5,
+                width: TILE_SIZE * 0.8,
+                height: TILE_SIZE * 0.8,
+                health: 100,
+                maxHealth: 100,
+                attackCooldown: 0,
+                attackDuration: 15, // frames
+                isAttacking: false,
+                attackFrame: 0,
+                inventory: {},
+                equipped: null // Not implemented, but for future
+            },
+            camera: {
+                x: 0,
+                y: 0
+            },
+            keys: {},
+            world: {
+                map: [],
+                objects: [],
+                enemies: [],
+                npcs: [],
+                particles: [],
+                floatingTexts: []
+            },
+            ui: {
+                dialogue: null,
+                inventoryOpen: false,
+                currentQuest: 'start_game',
+            },
+            gameTime: 0
+        };
+
+        // --- Asset & Data Definitions ---
+
+        const ITEM_DATA = {
+            'wood': { name: 'Wood', desc: 'A sturdy piece of wood.', color: '#8B4513' },
+            'stone': { name: 'Stone', desc: 'A rough, grey stone.', color: '#808080' },
+            'scrap_metal': { name: 'Scrap Metal', desc: 'Twisted metal from the crash.', color: '#a9a9a9' },
+            'aether_herb': { name: 'Aether Herb', desc: 'Glows with a faint purple light.', color: '#c38eff' },
+            'crystal_shard': { name: 'Crystal Shard', desc: 'Dropped by Echo-touched creatures.', color: '#9dffff' },
+            'focusing_crystal': { name: 'Focusing Crystal', desc: 'A key component for the beacon.', color: '#00ffff' },
+            'amplifying_coil': { name: 'Amplifying Coil', desc: 'A key component for the beacon.', color: '#ffdf00' },
+            'power_conduit': { name: 'Power Conduit', desc: 'A key component for the beacon.', color: '#00ff00' },
+            'crude_hatchet': { name: 'Crude Hatchet', desc: 'Allows chopping down trees.', color: '#d2691e', type: 'tool' },
+            'crude_pickaxe': { name: 'Crude Pickaxe', desc: 'Allows mining stone and metal.', color: '#c0c0c0', type: 'tool' },
+            'makeshift_sword': { name: 'Makeshift Sword', desc: 'Better than your fists.', color: '#e0e0e0', type: 'weapon' },
+            'purification_poul': { name: 'Purification Poultice', desc: 'A mix of herbs to cleanse corruption.', color: '#e6e6fa', type: 'quest' },
+            'aetheric_beacon': { name: 'Aetheric Beacon', desc: 'Your ticket home. Take it to the Sky-Spire.', color: '#ffffff', type: 'quest' }
+        };
+
+        const CRAFTING_RECIPES = {
+            'crude_hatchet': { items: { 'wood': 3, 'stone': 2 }, result: 'crude_hatchet', quantity: 1 },
+            'crude_pickaxe': { items: { 'wood': 3, 'scrap_metal': 2 }, result: 'crude_pickaxe', quantity: 1 },
+            'makeshift_sword': { items: { 'wood': 2, 'scrap_metal': 4 }, result: 'makeshift_sword', quantity: 1 },
+            'purification_poul': { items: { 'aether_herb': 3 }, result: 'purification_poul', quantity: 1 },
+            'aetheric_beacon': { items: { 'focusing_crystal': 1, 'amplifying_coil': 1, 'power_conduit': 1, 'scrap_metal': 10, 'crystal_shard': 5 }, result: 'aetheric_beacon', quantity: 1 }
+        };
+        
+        const QUEST_DATA = {
+            'start_game': {
+                objective: 'Survive! Find something useful in the wreckage of the Zephyr.',
+                onComplete: 'talk_to_silas_1'
+            },
+            'talk_to_silas_1': {
+                objective: 'The forest feels strange. Look for signs of life or shelter.',
+                onComplete: 'cleanse_the_spring'
+            },
+            'cleanse_the_spring': {
+                objective: 'Silas needs help. Craft a Purification Poultice and cleanse the nearby corrupted spring.',
+                onComplete: 'talk_to_silas_2'
+            },
+            'talk_to_silas_2': {
+                objective: 'Return to Silas. Let him know the spring is cleansed.',
+                onComplete: 'find_the_village'
+            },
+            'find_the_village': {
+                objective: 'Silas mentioned a village and a tinkerer named Kael. Find them to build a beacon.',
+                onComplete: 'build_the_beacon'
+            },
+            'build_the_beacon': {
+                objective: 'Kael needs 3 components: Focusing Crystal, Amplifying Coil, and a Power Conduit.',
+                onComplete: 'ascend_the_spire'
+            },
+             'ascend_the_spire': {
+                objective: 'You have the Aetheric Beacon! Ascend the Sky-Spire to the north and signal for help.',
+                onComplete: 'game_win'
+            },
+            'game_win': {
+                objective: "You've sent the signal! You are safe."
+            }
+        };
+
+        const DIALOGUE_DATA = {
+            'silas_intro': [
+                { speaker: 'Silas', text: "Hmph. Another one from the sky-metal bird. Don't touch anything." },
+                { speaker: 'Silas', text: "Your crash... it angered the forest. A sickness spreads, twisting the creatures. I see it in your eyes, you feel it too." },
+                { speaker: 'Silas', text: "You want my help? Prove you're not part of the problem. The spring to the west... it's turning foul. The beasts there are rabid." },
+                { speaker: 'Silas', text: "There are glowing herbs nearby. Aether Herbs. Gather them, make a poultice, and cleanse the spring's heart. Then we'll talk." }
+            ],
+            'silas_reminder': [
+                { speaker: 'Silas', text: "The spring to the west. Cleanse it. I'm not helping you until you do." }
+            ],
+            'silas_post_spring': [
+                { speaker: 'Silas', text: "You did it... The water runs clear. Perhaps you are different." },
+                { speaker: 'Silas', text: "A signal, you say? The forest canopy is too thick here. But there are others... descendants of another lost crew. They live in a village to the east." },
+                { speaker: 'Silas', text: "Find a boy named Kael. He's a tinkerer, obsessed with old-world tech. If anyone can build a beacon, it's him. Good luck." }
+            ],
+            'kael_intro': [
+                { speaker: 'Kael', text: "Wow! From the Zephyr! I knew it! I've been studying the schematics I found. The Aetherium Core... incredible technology!" },
+                { speaker: 'Kael', text: "A beacon? Yes! Totally! We can build an Aetheric Beacon, powerful enough to pierce the sky!" },
+                { speaker: 'Kael', text: "But the crash scattered the key parts. I need three things: a Focusing Crystal, an Amplifying Coil, and an intact Power Conduit." },
+                { speaker: 'Kael', text: "I've tracked their energy signatures. The Crystal is deep in the caves to the south. The Coil fell into the old swamp ruins. And the Conduit... it's still in the main fuselage, near the core. Be careful, the energy there is dangerously high." }
+            ],
+             'kael_reminder': [
+                { speaker: 'Kael', text: "I still need those parts! The Focusing Crystal from the caves, the Amplifying Coil from the swamp ruins, and the Power Conduit from the main fuselage." }
+            ],
+             'kael_has_parts': [
+                { speaker: 'Kael', text: "You got them all! Amazing! Let's get to work. I'll need some extra scrap and crystal shards to bind it all together." },
+                { speaker: 'Kael', text: "Go on, use the crafting bench here. The recipe should be in your mind now. Craft the beacon!" }
+            ],
+            'lena_intro': [
+                { speaker: 'Lena', text: "You're the survivor. Kael won't shut up about you. The forest is more dangerous than ever since your ship fell. The beasts are stronger, corrupted." },
+                { speaker: 'Lena', text: "If you're going to survive out there, you'll need more than just hope. Hunt the Echo-touched, gather their crystal shards. They're useful, and it thins their numbers." }
+            ]
+        };
+        
+        // --- UI Management ---
+        const dialogueBox = document.getElementById('dialogue-box');
+        const dialogueSpeaker = document.getElementById('dialogue-speaker');
+        const dialogueText = document.getElementById('dialogue-text');
+        const inventoryWindow = document.getElementById('inventory-crafting-window');
+        const inventoryGrid = document.getElementById('inventory-grid');
+        const craftingGrid = document.getElementById('crafting-grid');
+        const objectiveText = document.getElementById('objective-text');
+        const healthBar = document.getElementById('health-bar');
+        const messagePopup = document.getElementById('message-popup');
+        let messageTimeout;
+
+        function showMessage(text) {
+            clearTimeout(messageTimeout);
+            messagePopup.textContent = text;
+            messagePopup.style.opacity = '1';
+            messagePopup.style.top = '20px';
+            messageTimeout = setTimeout(() => {
+                messagePopup.style.opacity = '0';
+                messagePopup.style.top = '0px';
+            }, 2000);
+        }
+
+        function startDialogue(dialogueKey) {
+            if (!DIALOGUE_DATA[dialogueKey]) return;
+            gameState.ui.dialogue = {
+                key: dialogueKey,
+                lines: [...DIALOGUE_DATA[dialogueKey]],
+                currentLine: 0
+            };
+            dialogueBox.style.display = 'block';
+            updateDialogue();
+        }
+
+        function updateDialogue() {
+            const dia = gameState.ui.dialogue;
+            if (!dia || dia.currentLine >= dia.lines.length) {
+                endDialogue();
+                return;
+            }
+            const line = dia.lines[dia.currentLine];
+            dialogueSpeaker.textContent = line.speaker;
+            dialogueText.textContent = line.text;
+        }
+
+        function advanceDialogue() {
+            if (!gameState.ui.dialogue) return;
+            gameState.ui.dialogue.currentLine++;
+            updateDialogue();
+        }
+
+        function endDialogue() {
+            const lastKey = gameState.ui.dialogue.key;
+            gameState.ui.dialogue = null;
+            dialogueBox.style.display = 'none';
+
+            // Quest progression logic
+            if (lastKey === 'silas_intro') setQuest('cleanse_the_spring');
+            if (lastKey === 'silas_post_spring') setQuest('find_the_village');
+            if (lastKey === 'kael_intro') setQuest('build_the_beacon');
+            if (lastKey === 'kael_has_parts' && hasItem('aetheric_beacon')) setQuest('ascend_the_spire');
+        }
+
+        function toggleInventory() {
+            gameState.ui.inventoryOpen = !gameState.ui.inventoryOpen;
+            inventoryWindow.style.display = gameState.ui.inventoryOpen ? 'flex' : 'none';
+            if (gameState.ui.inventoryOpen) {
+                updateInventoryUI();
+                updateCraftingUI();
+            }
+        }
+        
+        function updateInventoryUI() {
+            inventoryGrid.innerHTML = '';
+            for (const itemId in gameState.player.inventory) {
+                const count = gameState.player.inventory[itemId];
+                if (count > 0) {
+                    const item = ITEM_DATA[itemId];
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'grid-item';
+                    
+                    const icon = document.createElement('div');
+                    icon.className = 'item-icon';
+                    icon.style.backgroundColor = item.color;
+                    itemEl.appendChild(icon);
+
+                    const countEl = document.createElement('div');
+                    countEl.className = 'item-count';
+                    countEl.textContent = count;
+                    itemEl.appendChild(countEl);
+
+                    // Tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.id = 'tooltip';
+                    tooltip.innerHTML = `<div id="tooltip-name">${item.name}</div><div id="tooltip-desc">${item.desc}</div>`;
+                    itemEl.appendChild(tooltip);
+
+                    inventoryGrid.appendChild(itemEl);
+                }
+            }
+        }
+
+        function updateCraftingUI() {
+            craftingGrid.innerHTML = '';
+            for (const recipeId in CRAFTING_RECIPES) {
+                const recipe = CRAFTING_RECIPES[recipeId];
+                if (hasItem(recipe.result)) continue; // Don't show if already crafted for tools/quest items
+
+                const item = ITEM_DATA[recipe.result];
+                const itemEl = document.createElement('div');
+                itemEl.className = 'grid-item';
+
+                const canCraft = checkCanCraft(recipeId);
+                if (canCraft) {
+                    itemEl.classList.add('can-craft');
+                }
+
+                itemEl.onclick = () => tryCraft(recipeId);
+                
+                const icon = document.createElement('div');
+                icon.className = 'item-icon';
+                icon.style.backgroundColor = item.color;
+                itemEl.appendChild(icon);
+
+                // Tooltip
+                const tooltip = document.createElement('div');
+                tooltip.id = 'tooltip';
+                let costText = 'Cost:\n';
+                for(const res in recipe.items) {
+                    const required = recipe.items[res];
+                    const possessed = gameState.player.inventory[res] || 0;
+                    costText += `  ${ITEM_DATA[res].name}: ${possessed}/${required}\n`;
+                }
+                tooltip.innerHTML = `<div id="tooltip-name">${item.name}</div><div id="tooltip-desc">${item.desc}</div><div id="tooltip-cost">${costText}</div>`;
+                itemEl.appendChild(tooltip);
+
+                craftingGrid.appendChild(itemEl);
+            }
+        }
+        
+        function updateHUD() {
+            const quest = QUEST_DATA[gameState.ui.currentQuest];
+            if (quest) {
+                objectiveText.textContent = quest.objective;
+            }
+            healthBar.style.width = `${(gameState.player.health / gameState.player.maxHealth) * 100}%`;
+        }
+        
+        // --- Game Logic ---
+        function setQuest(questId) {
+            if (QUEST_DATA[questId]) {
+                gameState.ui.currentQuest = questId;
+                showMessage(`New Objective: ${QUEST_DATA[questId].objective.substring(0, 30)}...`);
+                updateHUD();
+            }
+        }
+        
+        function checkCanCraft(recipeId) {
+            const recipe = CRAFTING_RECIPES[recipeId];
+            for (const itemId in recipe.items) {
+                if ((gameState.player.inventory[itemId] || 0) < recipe.items[itemId]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function tryCraft(recipeId) {
+            if (checkCanCraft(recipeId)) {
+                const recipe = CRAFTING_RECIPES[recipeId];
+                // Consume items
+                for (const itemId in recipe.items) {
+                    removeItem(itemId, recipe.items[itemId]);
+                }
+                // Add crafted item
+                addItem(recipe.result, recipe.quantity);
+                showMessage(`Crafted ${ITEM_DATA[recipe.result].name}`);
+                updateInventoryUI();
+                updateCraftingUI();
+                 // Special quest logic
+                if (recipe.result === 'aetheric_beacon') {
+                    setQuest('ascend_the_spire');
+                }
+            } else {
+                 showMessage(`Missing resources!`);
+            }
+        }
+
+        function addItem(itemId, count = 1) {
+            if (!gameState.player.inventory[itemId]) {
+                gameState.player.inventory[itemId] = 0;
+            }
+            gameState.player.inventory[itemId] += count;
+        }
+
+        function removeItem(itemId, count = 1) {
+            if (gameState.player.inventory[itemId]) {
+                gameState.player.inventory[itemId] -= count;
+                if (gameState.player.inventory[itemId] <= 0) {
+                    delete gameState.player.inventory[itemId];
+                }
+            }
+        }
+        
+        function hasItem(itemId, count = 1) {
+             return (gameState.player.inventory[itemId] || 0) >= count;
+        }
+
+        function playerAttack() {
+            if (gameState.player.attackCooldown > 0) return;
+            if (!hasItem('makeshift_sword')) {
+                showMessage("You need a weapon to attack!");
+                return;
+            }
+            
+            gameState.player.isAttacking = true;
+            gameState.player.attackFrame = 0;
+            gameState.player.attackCooldown = 45; // Cooldown in frames
+
+            const attackRange = TILE_SIZE * 1.2;
+            const p = gameState.player;
+            gameState.world.enemies.forEach(enemy => {
+                const dx = enemy.x - p.x;
+                const dy = enemy.y - p.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < attackRange) {
+                    enemy.health -= 25;
+                    enemy.isHit = 15; // frames
+                    createFloatingText('-25', enemy.x, enemy.y, '#ff4d4d');
+                    if(enemy.health <= 0) {
+                        // Enemy defeated logic
+                        createCorpse(enemy);
+                        addItem('crystal_shard', 1 + Math.floor(Math.random() * 2));
+                    }
+                }
+            });
+            // Remove dead enemies
+            gameState.world.enemies = gameState.world.enemies.filter(e => e.health > 0);
+        }
+
+        function takeDamage(amount) {
+            gameState.player.health -= amount;
+            gameContainer.style.animation = 'shake 0.3s';
+            setTimeout(() => gameContainer.style.animation = '', 300);
+            
+            if (gameState.player.health <= 0) {
+                gameState.player.health = 0;
+                // Game Over logic
+                alert("You have been defeated by the corrupted forest!");
+                window.location.reload();
+            }
+            updateHUD();
+        }
+
+        function createCorpse(enemy) {
+            gameState.world.objects.push({
+                type: 'corpse',
+                x: enemy.x, y: enemy.y,
+                width: TILE_SIZE, height: TILE_SIZE,
+                color: '#5a2d2d',
+                spawnTime: gameState.gameTime,
+            });
+        }
+        
+        function createParticle(x, y, color, count, speed, life) {
+            for(let i=0; i<count; i++) {
+                gameState.world.particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * speed,
+                    vy: (Math.random() - 0.5) * speed,
+                    life: life,
+                    color: color
+                });
+            }
+        }
+        
+        function createFloatingText(text, x, y, color) {
+            gameState.world.floatingTexts.push({
+                text, x, y, color,
+                vy: -1,
+                life: 60, // frames
+            });
+        }
+        
+        // --- Map Generation ---
+        const MAP_WIDTH = 150;
+        const MAP_HEIGHT = 150;
+        const TILE_TYPES = {
+            GRASS: 0, TREE: 1, ROCK: 2, WATER: 3, SHIP_WRECK: 4, HERB: 5, CORRUPTED_GROUND: 6,
+            SPRING_HEART: 7, CAVE_ENTRANCE: 8, SWAMP_WATER: 9, RUIN_WALL: 10, FUSELAGE: 11,
+            SPIRE_PATH: 12, SPIRE_PEAK: 13
+        };
+
+        const TILE_COLORS = {
+            [TILE_TYPES.GRASS]: '#3a8e3a', [TILE_TYPES.TREE]: '#1d591d', [TILE_TYPES.ROCK]: '#808080',
+            [TILE_TYPES.WATER]: '#4169e1', [TILE_TYPES.SHIP_WRECK]: '#a9a9a9', [TILE_TYPES.HERB]: '#c38eff',
+            [TILE_TYPES.CORRUPTED_GROUND]: '#58377C', [TILE_TYPES.SPRING_HEART]: '#9370DB', [TILE_TYPES.CAVE_ENTRANCE]: '#3b3b3b',
+            [TILE_TYPES.SWAMP_WATER]: '#4a5334', [TILE_TYPES.RUIN_WALL]: '#696969', [TILE_TYPES.FUSELAGE]: '#708090',
+            [TILE_TYPES.SPIRE_PATH]: '#b0c4de', [TILE_TYPES.SPIRE_PEAK]: '#ffffff',
+        };
+        
+        const TILE_SOLID = {
+            [TILE_TYPES.TREE]: true, [TILE_TYPES.ROCK]: true, [TILE_TYPES.WATER]: true,
+            [TILE_TYPES.SHIP_WRECK]: true, [TILE_TYPES.RUIN_WALL]: true, [TILE_TYPES.FUSELAGE]: true,
+            [TILE_TYPES.CAVE_ENTRANCE]: true,
+        };
+
+        function generateMap() {
+            let map = Array(MAP_HEIGHT).fill(0).map(() => Array(MAP_WIDTH).fill(TILE_TYPES.GRASS));
+
+            // Basic procedural generation
+            for(let i=0; i<3000; i++) {
+                map[Math.floor(Math.random() * MAP_HEIGHT)][Math.floor(Math.random() * MAP_WIDTH)] = TILE_TYPES.TREE;
+            }
+             for(let i=0; i<1000; i++) {
+                map[Math.floor(Math.random() * MAP_HEIGHT)][Math.floor(Math.random() * MAP_WIDTH)] = TILE_TYPES.ROCK;
+            }
+             for(let i=0; i<300; i++) {
+                map[Math.floor(Math.random() * MAP_HEIGHT)][Math.floor(Math.random() * MAP_WIDTH)] = TILE_TYPES.HERB;
+            }
+
+            // Crash site
+            for (let y = 3; y < 10; y++) for (let x = 3; x < 10; x++) {
+                if(Math.random() > 0.4) map[y][x] = TILE_TYPES.SHIP_WRECK;
+            }
+            
+            // Silas's hut
+            map[30][40] = TILE_TYPES.TREE; map[30][41] = TILE_TYPES.TREE; map[31][40] = TILE_TYPES.TREE;
+            
+            // Corrupted Spring
+            for (let y = 28; y < 35; y++) for (let x = 18; x < 25; x++) {
+                map[y][x] = TILE_TYPES.CORRUPTED_GROUND;
+            }
+            map[31][21] = TILE_TYPES.SPRING_HEART;
+
+            // Village
+            for (let y = 40; y < 50; y++) for (let x = 80; x < 90; x++) {
+                 map[y][x] = TILE_TYPES.GRASS;
+                 if(Math.random() < 0.1) map[y][x] = TILE_TYPES.TREE;
+            }
+            
+            // Fuselage (near crash site)
+             for (let y = 15; y < 25; y++) for (let x = 5; x < 15; x++) {
+                if(Math.random() > 0.2) map[y][x] = TILE_TYPES.FUSELAGE;
+            }
+            
+            // Caves (south)
+            for (let y = 120; y < 140; y++) for (let x = 60; x < 90; x++) {
+                map[y][x] = TILE_TYPES.ROCK;
+            }
+            map[125][75] = TILE_TYPES.CAVE_ENTRANCE;
+            
+            // Swamp (east)
+            for (let y = 60; y < 90; y++) for (let x = 110; x < 140; x++) {
+                 map[y][x] = TILE_TYPES.SWAMP_WATER;
+                 if(Math.random() < 0.1) map[y][x] = TILE_TYPES.RUIN_WALL;
+            }
+            
+            // Sky-Spire (north)
+            for (let y = 100; y < 145; y++) for (let x = 20; x < 50; x++) {
+                 map[y][x] = TILE_TYPES.SPIRE_PATH;
+            }
+            map[140][35] = TILE_TYPES.SPIRE_PEAK;
+
+
+            gameState.world.map = map;
+        }
+        
+        function setupWorld() {
+            // NPCs
+            gameState.world.npcs.push({ id: 'silas', name: 'Silas', x: TILE_SIZE * 41, y: TILE_SIZE * 31, color: '#008080' });
+            gameState.world.npcs.push({ id: 'kael', name: 'Kael', x: TILE_SIZE * 85, y: TILE_SIZE * 45, color: '#f0e68c' });
+            gameState.world.npcs.push({ id: 'lena', name: 'Lena', x: TILE_SIZE * 82, y: TILE_SIZE * 42, color: '#daa520' });
+            
+            // Quest Items
+            gameState.world.objects.push({ id: 'power_conduit_item', type: 'quest_item', itemId: 'power_conduit', x: TILE_SIZE * 10, y: TILE_SIZE * 20, width: TILE_SIZE, height: TILE_SIZE, color: ITEM_DATA['power_conduit'].color });
+            gameState.world.objects.push({ id: 'focusing_crystal_item', type: 'quest_item', itemId: 'focusing_crystal', x: TILE_SIZE * 75, y: TILE_SIZE * 135, width: TILE_SIZE, height: TILE_SIZE, color: ITEM_DATA['focusing_crystal'].color });
+            gameState.world.objects.push({ id: 'amplifying_coil_item', type: 'quest_item', itemId: 'amplifying_coil', x: TILE_SIZE * 125, y: TILE_SIZE * 75, width: TILE_SIZE, height: TILE_SIZE, color: ITEM_DATA['amplifying_coil'].color });
+
+            // Enemies
+            for (let i = 0; i < 50; i++) {
+                spawnEnemy();
+            }
+        }
+        
+        function spawnEnemy() {
+            const x = Math.random() * MAP_WIDTH * TILE_SIZE;
+            const y = Math.random() * MAP_HEIGHT * TILE_SIZE;
+            
+            // Avoid spawning on solid tiles or near player start
+            const tileX = Math.floor(x/TILE_SIZE);
+            const tileY = Math.floor(y/TILE_SIZE);
+            if( TILE_SOLID[gameState.world.map[tileY]?.[tileX]] || (x < 20*TILE_SIZE && y < 20*TILE_SIZE) ) return;
+            
+            gameState.world.enemies.push({
+                x, y,
+                width: TILE_SIZE * 0.7,
+                height: TILE_SIZE * 0.7,
+                speed: 1 + Math.random(),
+                health: 50,
+                maxHealth: 50,
+                attackCooldown: 0,
+                isHit: 0,
+            });
+        }
+
+
+        // --- Update & Render ---
+        
+        function update() {
+            if (!gameState.running || gameState.ui.dialogue || gameState.ui.inventoryOpen) return;
+            
+            const p = gameState.player;
+            let dx = 0, dy = 0;
+            if (gameState.keys['w'] || gameState.keys['ArrowUp']) dy -= 1;
+            if (gameState.keys['s'] || gameState.keys['ArrowDown']) dy += 1;
+            if (gameState.keys['a'] || gameState.keys['ArrowLeft']) dx -= 1;
+            if (gameState.keys['d'] || gameState.keys['ArrowRight']) dx += 1;
+
+            if (dx !== 0 || dy !== 0) {
+                const mag = Math.sqrt(dx*dx + dy*dy);
+                dx = (dx/mag) * PLAYER_SPEED;
+                dy = (dy/mag) * PLAYER_SPEED;
+            }
+
+            // Collision detection
+            const nextX = p.x + dx;
+            const nextY = p.y + dy;
+            const tileX = Math.floor((nextX + p.width / 2) / TILE_SIZE);
+            const tileY = Math.floor((nextY + p.height / 2) / TILE_SIZE);
+
+            if (!TILE_SOLID[gameState.world.map[tileY]?.[tileX]]) {
+                p.x = nextX;
+                p.y = nextY;
+            }
+
+            // Cooldowns
+            if (p.attackCooldown > 0) p.attackCooldown--;
+            if (p.isAttacking) {
+                p.attackFrame++;
+                if (p.attackFrame >= p.attackDuration) {
+                    p.isAttacking = false;
+                }
+            }
+
+            // Update enemies
+            gameState.world.enemies.forEach(enemy => {
+                if (enemy.isHit > 0) enemy.isHit--;
+                if (enemy.attackCooldown > 0) enemy.attackCooldown--;
+                
+                const ex = enemy.x - p.x;
+                const ey = enemy.y - p.y;
+                const dist = Math.sqrt(ex*ex + ey*ey);
+
+                if(dist < TILE_SIZE * 8) { // Chase range
+                    const mag = Math.sqrt(ex*ex + ey*ey);
+                    enemy.x -= (ex/mag) * enemy.speed;
+                    enemy.y -= (ey/mag) * enemy.speed;
+                }
+                
+                if(dist < TILE_SIZE * 0.8 && enemy.attackCooldown <= 0) { // Attack range
+                    takeDamage(10);
+                    enemy.attackCooldown = 120; // 2 seconds
+                }
+            });
+
+            // Update particles
+            gameState.world.particles = gameState.world.particles.filter(p => p.life > 0);
+            gameState.world.particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+            });
+            
+             // Update floating texts
+            gameState.world.floatingTexts = gameState.world.floatingTexts.filter(t => t.life > 0);
+            gameState.world.floatingTexts.forEach(t => {
+                t.y += t.vy;
+                t.life--;
+            });
+            
+            // Corpse decay
+            gameState.world.objects = gameState.world.objects.filter(o => o.type !== 'corpse' || gameState.gameTime - o.spawnTime < 600);
+
+            // Camera follow
+            gameState.camera.x = p.x - canvasWidth / 2;
+            gameState.camera.y = p.y - canvasHeight / 2;
+            
+            gameState.gameTime++;
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0,0,canvasWidth, canvasHeight);
+            
+            const cam = gameState.camera;
+            
+            // Draw map
+            const startCol = Math.floor(cam.x / TILE_SIZE);
+            const endCol = startCol + Math.ceil(canvasWidth / TILE_SIZE);
+            const startRow = Math.floor(cam.y / TILE_SIZE);
+            const endRow = startRow + Math.ceil(canvasHeight / TILE_SIZE);
+
+            for (let y = startRow; y <= endRow; y++) {
+                for (let x = startCol; x <= endCol; x++) {
+                    if (y >= 0 && y < MAP_HEIGHT && x >= 0 && x < MAP_WIDTH) {
+                        const tile = gameState.world.map[y][x];
+                        ctx.fillStyle = TILE_COLORS[tile] || '#000';
+                        ctx.fillRect(x * TILE_SIZE - cam.x, y * TILE_SIZE - cam.y, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+            
+            // Draw objects, npcs, enemies, player (sorted by y for depth)
+            const renderables = [
+                ...gameState.world.objects, ...gameState.world.npcs, ...gameState.world.enemies, gameState.player
+            ].sort((a,b) => a.y - b.y);
+            
+            renderables.forEach(obj => {
+                if (
+                    obj.x > cam.x - TILE_SIZE * 2 && obj.x < cam.x + canvasWidth + TILE_SIZE * 2 &&
+                    obj.y > cam.y - TILE_SIZE * 2 && obj.y < cam.y + canvasHeight + TILE_SIZE * 2
+                ) {
+                    if (obj === gameState.player) { // Player
+                        const p = gameState.player;
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(p.x - cam.x, p.y - cam.y, p.width, p.height);
+                        if(p.isAttacking) {
+                            ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                            ctx.beginPath();
+                            ctx.arc(p.x - cam.x + p.width/2, p.y - cam.y + p.height/2, TILE_SIZE * 0.8, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    } else if (gameState.world.enemies.includes(obj)) { // Enemy
+                        ctx.fillStyle = obj.isHit > 0 ? '#ff8a8a' : '#ff0000';
+                        ctx.fillRect(obj.x - cam.x, obj.y - cam.y, obj.width, obj.height);
+                        ctx.fillStyle = '#6a0dad'; // Corruption
+                        ctx.fillRect(obj.x - cam.x + 5, obj.y - cam.y + 5, 5, 5);
+                    } else { // NPC or Object
+                        ctx.fillStyle = obj.color;
+                        ctx.fillRect(obj.x - cam.x, obj.y - cam.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE);
+                        if (obj.name) {
+                            ctx.fillStyle = '#fff';
+                            ctx.textAlign = 'center';
+                            ctx.font = '10px "Press Start 2P"';
+                            ctx.fillText(obj.name, obj.x - cam.x + TILE_SIZE/2, obj.y - cam.y - 5);
+                        }
+                    }
+                }
+            });
+
+            // Draw particles
+            ctx.fillStyle = '#ff0';
+            gameState.world.particles.forEach(p => {
+                ctx.globalAlpha = p.life / 60;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - cam.x, p.y - cam.y, 3, 3);
+            });
+            ctx.globalAlpha = 1.0;
+
+            // Draw floating texts
+            gameState.world.floatingTexts.forEach(t => {
+                ctx.globalAlpha = t.life / 60;
+                ctx.fillStyle = t.color;
+                ctx.font = 'bold 14px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText(t.text, t.x - cam.x, t.y - cam.y);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Event Handling ---
+        
+        function handleInteraction() {
+            if (gameState.ui.dialogue) {
+                advanceDialogue();
+                return;
+            }
+            if(gameState.ui.inventoryOpen) return;
+
+            const p = gameState.player;
+            const interactionRange = TILE_SIZE * 1.5;
+
+            // Check for NPC interaction
+            for (const npc of gameState.world.npcs) {
+                const dx = npc.x - p.x;
+                const dy = npc.y - p.y;
+                if (Math.sqrt(dx*dx + dy*dy) < interactionRange) {
+                    interactWithNPC(npc.id);
+                    return;
+                }
+            }
+            
+            // Check for quest object pickup
+            for (const obj of gameState.world.objects) {
+                 if (obj.type === 'quest_item') {
+                    const dx = obj.x - p.x;
+                    const dy = obj.y - p.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < interactionRange) {
+                        addItem(obj.itemId);
+                        showMessage(`Found ${ITEM_DATA[obj.itemId].name}!`);
+                        gameState.world.objects = gameState.world.objects.filter(o => o !== obj);
+                        return;
+                    }
+                }
+            }
+
+
+            // Check for resource gathering
+            const tileX = Math.floor((p.x + p.width / 2) / TILE_SIZE);
+            const tileY = Math.floor((p.y + p.height / 2) / TILE_SIZE);
+
+            for (let y = tileY - 1; y <= tileY + 1; y++) {
+                for (let x = tileX - 1; x <= tileX + 1; x++) {
+                    const tile = gameState.world.map[y]?.[x];
+                    if (tile === TILE_TYPES.TREE) {
+                        if (!hasItem('crude_hatchet')) { showMessage("You need a hatchet to chop trees."); return; }
+                        gameState.world.map[y][x] = TILE_TYPES.GRASS;
+                        addItem('wood', 1 + Math.floor(Math.random() * 2));
+                        createParticle(x * TILE_SIZE, y * TILE_SIZE, '#8B4513', 10, 3, 30);
+                        return;
+                    }
+                    if (tile === TILE_TYPES.ROCK) {
+                        if (!hasItem('crude_pickaxe')) { showMessage("You need a pickaxe to mine stone."); return; }
+                        gameState.world.map[y][x] = TILE_TYPES.GRASS;
+                        addItem('stone', 1 + Math.floor(Math.random() * 2));
+                        createParticle(x * TILE_SIZE, y * TILE_SIZE, '#808080', 10, 2, 40);
+                        return;
+                    }
+                    if (tile === TILE_TYPES.SHIP_WRECK) {
+                         if (!hasItem('crude_pickaxe')) { showMessage("You need a pickaxe to salvage metal."); return; }
+                        gameState.world.map[y][x] = TILE_TYPES.GRASS;
+                        addItem('scrap_metal', 1 + Math.floor(Math.random() * 2));
+                        createParticle(x * TILE_SIZE, y * TILE_SIZE, '#a9a9a9', 10, 2, 40);
+                        return;
+                    }
+                    if (tile === TILE_TYPES.HERB) {
+                        gameState.world.map[y][x] = TILE_TYPES.GRASS;
+                        addItem('aether_herb');
+                        createParticle(x * TILE_SIZE, y * TILE_SIZE, '#c38eff', 5, 1, 60);
+                        return;
+                    }
+                    if (tile === TILE_TYPES.SPRING_HEART) {
+                        if (gameState.ui.currentQuest === 'cleanse_the_spring') {
+                            if (hasItem('purification_poul')) {
+                                removeItem('purification_poul');
+                                showMessage("You cleanse the spring. The water runs pure again.");
+                                // Change tiles back
+                                for (let y2 = 28; y2 < 35; y2++) for (let x2 = 18; x2 < 25; x2++) {
+                                     gameState.world.map[y2][x2] = TILE_TYPES.GRASS;
+                                }
+                                gameState.world.map[31][21] = TILE_TYPES.WATER;
+                                setQuest('talk_to_silas_2');
+                            } else {
+                                showMessage("You need a Purification Poultice to cleanse this.");
+                            }
+                        }
+                        return;
+                    }
+                    if (tile === TILE_TYPES.SPIRE_PEAK) {
+                        if (gameState.ui.currentQuest === 'ascend_the_spire' && hasItem('aetheric_beacon')) {
+                            document.getElementById('end-screen').style.display = 'flex';
+                            gameState.running = false;
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+        
+        function interactWithNPC(npcId) {
+            if (npcId === 'silas') {
+                if (gameState.ui.currentQuest === 'talk_to_silas_1') startDialogue('silas_intro');
+                else if (gameState.ui.currentQuest === 'cleanse_the_spring') startDialogue('silas_reminder');
+                else if (gameState.ui.currentQuest === 'talk_to_silas_2') startDialogue('silas_post_spring');
+                else startDialogue('silas_post_spring');
+            }
+            if (npcId === 'kael') {
+                if (gameState.ui.currentQuest === 'find_the_village') {
+                    startDialogue('kael_intro');
+                    setQuest('build_the_beacon');
+                } else if (gameState.ui.currentQuest === 'build_the_beacon') {
+                    if (hasItem('focusing_crystal') && hasItem('amplifying_coil') && hasItem('power_conduit')) {
+                         startDialogue('kael_has_parts');
+                    } else {
+                        startDialogue('kael_reminder');
+                    }
+                } else {
+                    startDialogue('kael_reminder');
+                }
+            }
+             if (npcId === 'lena') {
+                 startDialogue('lena_intro');
+             }
+             
+             // Initial quest completion
+            if (gameState.ui.currentQuest === 'start_game' && hasItem('scrap_metal')) {
+                 setQuest('talk_to_silas_1');
+            }
+        }
+        
+        window.addEventListener('keydown', e => {
+            gameState.keys[e.key] = true;
+            if (e.key === 'e') {
+                handleInteraction();
+            }
+            if (e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                if(!gameState.ui.inventoryOpen && !gameState.ui.dialogue) playerAttack();
+            }
+            if (e.key === 'c' || e.key === 'i') {
+                if (!gameState.ui.dialogue) toggleInventory();
+            }
+        });
+        window.addEventListener('keyup', e => {
+            gameState.keys[e.key] = false;
+        });
+        
+        window.addEventListener('resize', () => {
+             canvasWidth = gameContainer.clientWidth;
+             canvasHeight = gameContainer.clientHeight;
+             canvas.width = canvasWidth;
+             canvas.height = canvasHeight;
+        });
+        
+        document.getElementById('start-game-button').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            init();
+        });
+
+        function init() {
+            gameState.running = true;
+            generateMap();
+            setupWorld();
+            setQuest('start_game');
+            gameLoop();
+        }
+
+    </script>
+</body>
+</html>
+
